@@ -26,8 +26,19 @@ export default function EmailPasswordDemo({ user }: EmailPasswordDemoProps) {
   }
 
   useEffect(() => {
+    void (async () => {
+      const { data, error } = await supabase.auth.getSession();
+      if (error) {
+        console.error("[supabase] getSession error", error);
+        return;
+      }
+
+      console.log("[supabase] initial session", data.session);
+    })();
+
     const { data: listener } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
+      (event, session) => {
+        console.log("[supabase] auth state change", { event, session });
         setCurrentUser(session?.user ?? null);
       },
     );
