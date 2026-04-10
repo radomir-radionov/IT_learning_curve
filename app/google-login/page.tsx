@@ -1,12 +1,5 @@
-import GoogleLoginDemo from "./GoogleLoginDemo";
-import { createSupabaseServerClient } from "@/lib/supabase/server-client";
+import GoogleLoginForm from "./GoogleLoginForm";
 
-export default async function GoogleLoginPage() {
-  const supabase = await createSupabaseServerClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  console.log( { user });
-  return <GoogleLoginDemo user={user} />;
+export default function GoogleLoginPage() {
+  return <GoogleLoginForm />;
 }

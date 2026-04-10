@@ -1,34 +1,106 @@
+import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-import { createSupabaseServerClient } from "./lib/supabase/server-client";
+
+const AUTH_ROUTES = new Set(["/login", "/email-password", "/google-login"]);
+
+function isProtectedPath(pathname: string) {
+  return pathname === "/" || pathname === "/profile";
+}
+
 /**
- * Next.js proxy (formerly middleware) entry point responsible for basic auth gating.
- *
- * Runtime assumptions due to conflicting docs (Next.js 16):
- * - Proxy runs in the Node.js runtime by default (not Edge)
- * - Node runtime grants access to the shared cookie store used by Supabase
- *
- * What happens per request:
- * - Instantiate the Supabase server client (shares cookies via `NextResponse`)
- * - Call `supabase.auth.getUser()` which refreshes tokens if necessary
- * - Redirect anonymous users away from `/protected` routes to `/login`
- *
- * Add extra path checks or redirects here when you need more complex routing rules.
+ * Copies cookies from one Next.js response to another (used when redirecting
+ * after `getUser()` may have refreshed the session).
+ */
+function redirectWithCookies(
+  request: NextRequest,
+  pathname: string,
+  sourceResponse: NextResponse,
+) {
+  const url = request.nextUrl.clone();
+  url.pathname = pathname;
+  url.search = "";
+  const redirect = NextResponse.redirect(url);
+  sourceResponse.cookies.getAll().forEach((cookie) => {
+    redirect.cookies.set(cookie.name, cookie.value);
+  });
+  return redirect;
+}
+
+/** Same path as the request but strips OAuth query params from the address bar. */
+function redirectCleanUrlWithCookies(
+  request: NextRequest,
+  sourceResponse: NextResponse,
+) {
+  const url = request.nextUrl.clone();
+  url.searchParams.delete("code");
+  url.searchParams.delete("state");
+  const redirect = NextResponse.redirect(url);
+  sourceResponse.cookies.getAll().forEach((cookie) => {
+    redirect.cookies.set(cookie.name, cookie.value);
+  });
+  return redirect;
+}
+
+/**
+ * Next.js proxy (middleware): Supabase session refresh + route gating.
+ * Guests hitting `/` or `/profile` are sent to `/login`. Guests can still reach
+ * other routes (e.g. `/welcome`). Signed-in users hitting auth routes go to `/`.
  */
 export async function proxy(request: NextRequest) {
-  const response = NextResponse.next({
-    request: {
-      headers: request.headers,
-    },
+  let response = NextResponse.next({
+    request: { headers: request.headers },
   });
-  const supabase = await createSupabaseServerClient();
+
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll();
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value }) => {
+            request.cookies.set(name, value);
+          });
+          response = NextResponse.next({
+            request: { headers: request.headers },
+          });
+          cookiesToSet.forEach(({ name, value, options }) => {
+            response.cookies.set(name, value, options);
+          });
+        },
+      },
+    },
+  );
+
+  const code = request.nextUrl.searchParams.get("code");
+  if (code) {
+    await supabase.auth.exchangeCodeForSession(code);
+  }
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  console.log ({ user });
 
-  // Redirect non-authenticated users away from protected routes
-  if (!user && request.nextUrl.pathname.startsWith("/protected")) {
-    return NextResponse.redirect(new URL("/login", request.url));
+  const pathname = request.nextUrl.pathname;
+
+  if (user) {
+    if (AUTH_ROUTES.has(pathname)) {
+      return redirectWithCookies(request, "/", response);
+    }
+    if (code) {
+      return redirectCleanUrlWithCookies(request, response);
+    }
+  } else if (isProtectedPath(pathname)) {
+    return redirectWithCookies(request, "/login", response);
   }
+
   return response;
 }
+
+export const config = {
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+  ],
+};

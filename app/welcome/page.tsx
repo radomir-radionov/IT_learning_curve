@@ -1,31 +1,21 @@
 import Link from "next/link";
-import { createSupabaseServerClient } from "@/lib/supabase/server-client";
 
-export default async function WelcomePage() {
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const greeting = user?.email
-    ? `Hello — you're signed in as ${user.email}.`
-    : "Hello — your email is confirmed. Sign in on the email + password demo to see your session.";
-
+export default function WelcomePage() {
   return (
     <div className="flex min-h-screen flex-col bg-gradient-to-br from-[#02050b] via-[#050c1d] to-[#071426] text-slate-100">
       <header className="border-b border-white/10 bg-slate-950/40 backdrop-blur">
         <div className="mx-auto flex w-full max-w-5xl items-center justify-between px-6 py-5">
           <div>
             <p className="text-[11px] uppercase tracking-[0.25em] text-slate-400">
-              Supabase Auth Demo
+              Supabase Auth
             </p>
             <h1 className="text-2xl font-semibold text-white">Welcome</h1>
           </div>
           <Link
-            href="/"
+            href="/login"
             className="inline-flex items-center gap-1 text-sm font-semibold text-emerald-300 transition hover:text-emerald-200"
           >
-            Back home →
+            Sign in →
           </Link>
         </div>
       </header>
@@ -40,12 +30,15 @@ export default async function WelcomePage() {
             Email confirmed
           </p>
           <h2 className="mt-3 text-3xl font-semibold text-white">Hello</h2>
-          <p className="mt-4 max-w-xl text-lg text-slate-300">{greeting}</p>
+          <p className="mt-4 max-w-xl text-lg text-slate-300">
+            Your email link brought you here. You can sign in from the login
+            page.
+          </p>
           <Link
-            href="/email-password"
+            href="/login"
             className="mt-8 inline-flex items-center justify-center rounded-full bg-emerald-500 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-emerald-900/30 transition hover:bg-emerald-400"
           >
-            Go to email + password demo
+            Go to login
           </Link>
         </section>
       </main>

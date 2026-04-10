@@ -7,7 +7,7 @@ function getEnvironmentVariables() {
 
   if (!supabaseUrl || !supabaseAnonKey) {
     throw new Error(
-      "Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY"
+      "Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY",
     );
   }
 
@@ -25,13 +25,13 @@ export async function createSupabaseServerClient() {
       },
       setAll(cookiesToSet) {
         try {
-          cookiesToSet.forEach(({ name, value, options }) => 
-            cookieStore.set(name, value, options)
+          cookiesToSet.forEach(({ name, value, options }) =>
+            cookieStore.set(name, value, options),
           );
-        } catch(error) {
-          console.log(error)
+        } catch {
+          // Cookie writes can fail when the response is already committed.
         }
-      }
-    }
+      },
+    },
   });
 }

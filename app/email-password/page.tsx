@@ -1,12 +1,5 @@
-import EmailPasswordDemo from "./EmailPasswordDemo";
-import { createSupabaseServerClient } from "@/lib/supabase/server-client";
+import EmailPasswordForm from "./EmailPasswordForm";
 
-export default async function EmailPasswordPage() {
-  const supabase = await createSupabaseServerClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  console.log( { user });
-  return <EmailPasswordDemo user={user} />;
+export default function EmailPasswordPage() {
+  return <EmailPasswordForm />;
 }
