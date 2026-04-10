@@ -62,10 +62,19 @@ export default function EmailPasswordDemo({ user }: EmailPasswordDemoProps) {
       if (error) {
         setStatus(error.message);
       } else {
-        setStatus("Check your inbox to confirm the new account.");
+        const identities = data.user?.identities;
+        console.log("[supabase] identities", identities);
+        const isNewRegistration = identities != null && identities.length > 0;
+        if (isNewRegistration) {
+          setStatus("Check your inbox to confirm the new account.");
+        } else {
+          setStatus(
+            "An account with this email already exists. Try signing in.",
+          );
+        }
       }
     } else {
-      const { error, data } = await supabase.auth.signInWithPassword({
+      const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
