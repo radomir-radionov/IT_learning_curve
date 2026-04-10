@@ -1,4 +1,7 @@
-import { createServerClient } from "@supabase/ssr";
+import {
+  createSupabaseMiddlewareClient,
+  type MiddlewareResponseState,
+} from "@/lib/supabase/middleware-client";
 import { NextResponse, type NextRequest } from "next/server";
 
 const AUTH_ROUTES = new Set(["/login", "/email-password", "/google-login"]);
@@ -47,32 +50,13 @@ function redirectCleanUrlWithCookies(
  * other routes (e.g. `/welcome`). Signed-in users hitting auth routes go to `/`.
  */
 export async function proxy(request: NextRequest) {
-  let response = NextResponse.next({
-    request: { headers: request.headers },
-  });
+  const state: MiddlewareResponseState = {
+    response: NextResponse.next({
+      request: { headers: request.headers },
+    }),
+  };
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) => {
-            request.cookies.set(name, value);
-          });
-          response = NextResponse.next({
-            request: { headers: request.headers },
-          });
-          cookiesToSet.forEach(({ name, value, options }) => {
-            response.cookies.set(name, value, options);
-          });
-        },
-      },
-    },
-  );
+  const supabase = createSupabaseMiddlewareClient(request, state);
 
   const code = request.nextUrl.searchParams.get("code");
   if (code) {
@@ -84,6 +68,7 @@ export async function proxy(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const pathname = request.nextUrl.pathname;
+  const { response } = state;
 
   if (user) {
     if (AUTH_ROUTES.has(pathname)) {

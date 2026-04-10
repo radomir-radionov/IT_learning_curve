@@ -23,7 +23,9 @@ There are **three call sites**, but **two different server-side cookie adapters*
 |--------|-----|-----------------|
 | Client components | `createBrowserClient` | `lib/supabase/browser-client.ts` → `getSupabaseBrowserClient()` |
 | Server Components, Server Actions, Route Handlers | `createServerClient` + `cookies()` from `next/headers` | `lib/supabase/server-client.ts` → `createSupabaseServerClient()` |
-| Root **proxy** (request boundary) | `createServerClient` + `NextRequest` / `NextResponse` cookies | `proxy.ts` (inline; **not** imported from `server-client.ts`) |
+| Root **proxy** (request boundary) | `createServerClient` + `NextRequest` / `NextResponse` cookies | `lib/supabase/middleware-client.ts` → `createSupabaseMiddlewareClient()` (used from `proxy.ts`; **not** the same module as `server-client.ts`) |
+
+**Shared env:** `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` are read via **`getSupabaseEnv()`** in `lib/supabase/env.ts` (used by both server and middleware clients).
 
 ### 2.1 Browser client — `lib/supabase/browser-client.ts`
 
@@ -63,10 +65,10 @@ So: **you are not “manually managing JWT strings”** — you are **plugging N
 
 The proxy runs with a **`NextRequest`**, not the RSC `cookies()` API. **`await cookies()` from `next/headers` is not used in `proxy.ts`**.
 
-- **Server / RSC:** `getAll` / `setAll` go through the async **`cookies()`** store.
-- **Proxy:** `getAll` reads **`request.cookies`**; `setAll` updates the mutable **`NextResponse`** (rebuild `NextResponse.next({ request: { headers } })`, then `response.cookies.set(...)`).
+- **Server / RSC:** `getAll` / `setAll` go through the async **`cookies()`** store (`createSupabaseServerClient()` in `server-client.ts`).
+- **Proxy:** `getAll` reads **`request.cookies`**; `setAll` updates a mutable **`NextResponse`** (rebuild `NextResponse.next({ request: { headers } })`, then `response.cookies.set(...)`). That implementation lives in **`createSupabaseMiddlewareClient()`** (`middleware-client.ts`); `proxy.ts` holds a **`state`** object whose **`response`** field is reassigned when Supabase writes cookies.
 
-You **cannot** swap in `createSupabaseServerClient()` inside the proxy without the wrong adapter. Env vars are the same; the **cookie bridge** must stay proxy-specific. Duplicating `createServerClient` here is intentional.
+You **cannot** swap in `createSupabaseServerClient()` inside the proxy without the wrong adapter. **Env** is shared via **`getSupabaseEnv()`**; the **cookie bridge** stays in **`middleware-client.ts`**, separate from `server-client.ts`.
 
 ---
 
@@ -118,8 +120,8 @@ The root **`proxy.ts`** exports **`proxy`**, which runs at the **edge of the app
 
 ### 5.1 Supabase in the proxy (not `createSupabaseServerClient`)
 
-1. Start with **`NextResponse.next({ request: { headers: request.headers } })`** — baseline response; the cookie `setAll` implementation **reassigns** this when Supabase needs to write cookies (standard `@supabase/ssr` middleware pattern).
-2. **`createServerClient`** with **`request.cookies`** / **`response.cookies`** (see §2.3).
+1. Build **`state`** with **`response: NextResponse.next({ request: { headers: request.headers } })`** — baseline outgoing response; the cookie **`setAll`** path **reassigns `state.response`** when Supabase needs to write cookies (standard `@supabase/ssr` middleware pattern).
+2. **`createSupabaseMiddlewareClient(request, state)`** (`middleware-client.ts`) — same **`createServerClient`** + **`request.cookies`** / **`state.response.cookies`** adapter as §2.3. After **`exchangeCodeForSession`** / **`getUser()`**, read the latest response from **`state.response`** (not a stale copy).
 3. If the URL has **`?code=`** → **`await supabase.auth.exchangeCodeForSession(code)`** (OAuth PKCE completion).
 4. **`await supabase.auth.getUser()`** — session read/refresh from cookies.
 
@@ -194,7 +196,7 @@ Examples in this project:
 | Visit **`/`** or **`/profile`** while logged out | `proxy.ts` | Redirect to `/login` |
 | OAuth return with **`?code=`** | `proxy.ts` | `exchangeCodeForSession` → optional clean URL redirect |
 | Request hits RSC / Server Action / Route Handler | `createSupabaseServerClient()` | `getAll` / `setAll` via `cookies()` |
-| Matched request hits proxy | `proxy.ts` inline `createServerClient` | `getAll` / `setAll` via `NextRequest` / `NextResponse` |
+| Matched request hits proxy | `createSupabaseMiddlewareClient()` in `middleware-client.ts`, called from `proxy.ts` | `getAll` / `setAll` via `NextRequest` / `NextResponse` |
 | Cookie write throws in server client | `setAll` `catch` | Request not crashed |
 | User signs out | `signOut()` in browser | Session cleared; UI and cookies follow |
 
@@ -203,7 +205,8 @@ Examples in this project:
 ## 8. Environment variables
 
 - **`NEXT_PUBLIC_SUPABASE_URL`** and **`NEXT_PUBLIC_SUPABASE_ANON_KEY`** must be set (see `.env.local`).
-- They are used by **browser**, **server**, and **proxy** clients so everything talks to the **same** Supabase project.
+- **`getSupabaseEnv()`** in `lib/supabase/env.ts` reads and validates them for **server** and **middleware** clients (missing values throw a clear error). The **browser** client still reads the same variables directly when creating the Supabase URL/key for `createBrowserClient`.
+- They are used by **browser**, **server**, and **proxy** paths so everything talks to the **same** Supabase project.
 
 ---
 
@@ -211,9 +214,11 @@ Examples in this project:
 
 | File | Role |
 |------|------|
+| `lib/supabase/env.ts` | `getSupabaseEnv()` — shared URL + anon key validation for server and middleware clients |
 | `lib/supabase/browser-client.ts` | `getSupabaseBrowserClient()` — client-only Supabase |
-| `lib/supabase/server-client.ts` | `createSupabaseServerClient()` — RSC / actions / routes |
-| `proxy.ts` | Session refresh, OAuth code exchange, route gating; **separate** `createServerClient` adapter |
+| `lib/supabase/server-client.ts` | `createSupabaseServerClient()` — RSC / actions / routes (`cookies()` adapter) |
+| `lib/supabase/middleware-client.ts` | `createSupabaseMiddlewareClient()` — `NextRequest` / `NextResponse` cookie adapter for the proxy |
+| `proxy.ts` | Session refresh, OAuth code exchange, route gating; calls **`createSupabaseMiddlewareClient`** |
 | `app/email-password/EmailPasswordForm.tsx` | Email/password UI |
 | `app/google-login/GoogleLoginForm.tsx` | Google OAuth button / flow |
 | `app/login/page.tsx` | Login hub |
