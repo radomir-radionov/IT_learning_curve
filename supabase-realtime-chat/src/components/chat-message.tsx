@@ -9,6 +9,10 @@ const DATE_FORMATTER = new Intl.DateTimeFormat(undefined, {
   timeStyle: "short",
 })
 
+function hasImageUrl(imageUrl: string | null): imageUrl is string {
+  return imageUrl != null && imageUrl.trim().length > 0
+}
+
 export function ChatMessage({
   text,
   author,
@@ -29,7 +33,7 @@ export function ChatMessage({
       )}
     >
       <div className="shrink-0">
-        {author.image_url != null ? (
+        {hasImageUrl(author.image_url) ? (
           <Image
             src={author.image_url}
             alt={author.name}
