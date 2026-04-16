@@ -3,7 +3,6 @@ import { LeaveRoomButton } from "@/components/leave-room-button"
 import { Button } from "@/components/ui/button"
 import {
   Card,
-  CardContent,
   CardDescription,
   CardFooter,
   CardHeader,

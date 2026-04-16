@@ -16,17 +16,6 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-## Supabase migrations
-
-This repo uses Supabase migrations in `supabase/migrations/`.
-
-- **Do not delete or edit existing migration files once they have been applied to a remote Supabase project.** Treat them as immutable history.
-- If you need to “clean up” many small migrations, prefer adding a new forward-only migration (or starting a fresh Supabase project and baselining from scratch).
-
-### Notes on redundancy
-
-Some migrations may appear redundant (for example, a later migration might drop *all* policies that an earlier migration already dropped). Even if redundant, **keep them** if they were applied remotely to avoid drift between repo history and the database.
-
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.

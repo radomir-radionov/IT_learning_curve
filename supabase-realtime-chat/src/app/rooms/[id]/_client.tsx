@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Message } from "@/services/supabase/actions/messages"
 import { createClient } from "@/services/supabase/client"
 import { RealtimeChannel } from "@supabase/supabase-js"
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 
 export function RoomClient({
   room,
@@ -25,7 +25,7 @@ export function RoomClient({
   }
   messages: Message[]
 }) {
-  const { connectedUsers, messages: realtimeMessages } = useRealtimeChat({
+  const { connectedUsers, messages: realtimeMessages, broadcastMessage } = useRealtimeChat({
     roomId: room.id,
     userId: user.id,
   })
@@ -114,6 +114,7 @@ export function RoomClient({
               m.id === message.id ? { ...message, status: "success" } : m
             )
           )
+          broadcastMessage(message)
         }}
         onErrorSend={id => {
           setSentMessages(prev =>
@@ -134,6 +135,7 @@ function useRealtimeChat({
 }) {
   const [connectedUsers, setConnectedUsers] = useState(1)
   const [messages, setMessages] = useState<Message[]>([])
+  const channelRef = useRef<RealtimeChannel | null>(null)
 
   useEffect(() => {
     const supabase = createClient()
@@ -151,6 +153,8 @@ function useRealtimeChat({
           },
         },
       })
+
+      channelRef.current = newChannel
 
       newChannel
         .on("presence", { event: "sync" }, () => {
@@ -181,13 +185,30 @@ function useRealtimeChat({
 
     return () => {
       cancel = true
+      channelRef.current = null
       if (!newChannel) return
       newChannel.untrack()
       newChannel.unsubscribe()
     }
   }, [roomId, userId])
 
-  return { connectedUsers, messages }
+  async function broadcastMessage(message: Message) {
+    if (!channelRef.current) return
+    await channelRef.current.send({
+      type: "broadcast",
+      event: "INSERT",
+      payload: {
+        id: message.id,
+        text: message.text,
+        created_at: message.created_at,
+        author_id: message.author_id,
+        author_name: message.author.name,
+        author_image_url: message.author.image_url,
+      },
+    })
+  }
+
+  return { connectedUsers, messages, broadcastMessage }
 }
 
 const LIMIT = 25

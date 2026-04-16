@@ -12,6 +12,11 @@ begin
   end if;
 
   execute format(
+    'alter table %s alter column image_url drop not null',
+    target_table
+  );
+
+  execute format(
     'update %s set image_url = null where btrim(image_url) = ''''',
     target_table
   );
