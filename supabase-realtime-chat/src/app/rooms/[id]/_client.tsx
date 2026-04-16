@@ -42,10 +42,14 @@ export function RoomClient({
     (Message & { status: "pending" | "error" | "success" })[]
   >([])
 
-  const visibleMessages = oldMessages.concat(
-    realtimeMessages,
-    sentMessages.filter(m => !realtimeMessages.find(rm => rm.id === m.id))
+  const liveMessages = [
+    ...realtimeMessages,
+    ...sentMessages.filter(m => !realtimeMessages.find(rm => rm.id === m.id)),
+  ].sort(
+    (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
   )
+
+  const visibleMessages = oldMessages.concat(liveMessages)
 
   return (
     <div className="container mx-auto h-screen-with-header border border-y-0 flex flex-col">
