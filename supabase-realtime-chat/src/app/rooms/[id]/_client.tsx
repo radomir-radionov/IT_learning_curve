@@ -3,6 +3,7 @@
 import { ChatInput } from "@/components/chat-input"
 import { ChatMessage } from "@/components/chat-message"
 import { InviteUserModal } from "@/components/invite-user-modal"
+import { LeaveRoomButton } from "@/components/leave-room-button"
 import { Button } from "@/components/ui/button"
 import { Message } from "@/services/supabase/actions/messages"
 import { createClient } from "@/services/supabase/client"
@@ -60,7 +61,12 @@ export function RoomClient({
             {connectedUsers} {connectedUsers === 1 ? "user" : "users"} online
           </p>
         </div>
-        <InviteUserModal roomId={room.id} />
+        <div className="flex items-center gap-2">
+          <InviteUserModal roomId={room.id} />
+          <LeaveRoomButton roomId={room.id} redirectTo="/" size="sm" variant="destructive">
+            Leave
+          </LeaveRoomButton>
+        </div>
       </div>
       <div
         className="grow overflow-y-auto flex flex-col-reverse"
