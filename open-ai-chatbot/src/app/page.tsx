@@ -6,7 +6,8 @@ import { Send } from "lucide-react";
 import Message from "./components/Messges";
 import { useRef } from "react";
 export default function Home() {
-  const { messages, handleSubmit, input, handleInputChange } = useChat();
+  const { messages, handleSubmit, input, handleInputChange, error } =
+    useChat();
   const formRef = useRef<HTMLFormElement>(null);
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -18,6 +19,14 @@ export default function Home() {
     <main className="fixed h-full w-full  bg-muted">
       <div className="container h-full w-full flex flex-col py-8">
         <div className="flex-1 overflow-y-auto">
+          {error && (
+            <p
+              className="mb-4 rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+              role="alert"
+            >
+              {error.message}
+            </p>
+          )}
           {messages.map((message) => (
             <Message key={message.id} message={message} />
           ))}

@@ -1,5 +1,25 @@
 This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
 
+## Environment
+
+Create a `.env` file in this directory with your OpenAI API key:
+
+```bash
+OPENAI_API_KEY=sk-...
+```
+
+Optionally set the chat model (defaults to `gpt-4o-mini`):
+
+```bash
+OPENAI_MODEL=gpt-4o-mini
+```
+
+Other examples: `gpt-4o`, `gpt-3.5-turbo`.
+
+### “Insufficient quota” / 429 from OpenAI
+
+That response means **your OpenAI project has no paid quota left** (or billing is not set up). **Changing `OPENAI_MODEL` does not fix it.** Fix it in the OpenAI dashboard: [Billing](https://platform.openai.com/account/billing) and [Usage](https://platform.openai.com/usage). Use an API key from an account that has access and credits.
+
 ## Getting Started
 
 First, run the development server:
